@@ -168,9 +168,9 @@ function mergeLegacyCustomer(remoteCustomer, index, metaEntries) {
 
   const mergedCustomer = {
     id,
-    name: remoteCustomer?.name || "",
+    name: meta?.name || remoteCustomer?.name || "",
     address: meta?.address || "Address not added",
-    phone,
+    phone: String(meta?.phone || phone),
     rate_per_liter: Number(meta?.rate_per_liter ?? 22),
     daily_milk: Number(meta?.daily_milk ?? remoteCustomer?.liters ?? 1),
     total_delivered: Number(meta?.total_delivered ?? 0),
@@ -228,6 +228,12 @@ function buildLegacyPayload(payload) {
     liters: Number(payload.daily_milk ?? 1),
     rupees: Number(payload.bill_amount ?? 0),
   };
+}
+
+function shouldFallbackToLegacyMeta(error) {
+  const statusCode = Number(error?.response?.status || 0);
+
+  return !statusCode || [400, 404, 405, 500, 501].includes(statusCode);
 }
 
 function buildModernPayload(payload) {
@@ -313,12 +319,30 @@ export async function updateCustomer(id, payload) {
     return extractPayload(response.data);
   }
 
-  const response = await legacyApi.put(`/${id}`, buildLegacyPayload(payload));
-  upsertLegacyMeta({
-    ...payload,
-    id,
-  });
-  return extractPayload(response.data);
+  try {
+    const response = await legacyApi.put(`/${id}`, buildLegacyPayload(payload));
+    upsertLegacyMeta({
+      ...payload,
+      id,
+    });
+    return extractPayload(response.data);
+  } catch (error) {
+    if (!shouldFallbackToLegacyMeta(error)) {
+      throw error;
+    }
+
+    // The legacy backend does not reliably support updates. Persisting
+    // customer edits locally keeps delivery and edit actions working.
+    upsertLegacyMeta({
+      ...payload,
+      id,
+    });
+
+    return {
+      ...payload,
+      id,
+    };
+  }
 }
 
 export async function removeCustomer(id) {
