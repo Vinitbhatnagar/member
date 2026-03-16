@@ -7,6 +7,7 @@ import {
     FiMapPin,
     FiMessageCircle,
     FiMinus,
+    FiNavigation,
     FiPlus,
     FiTrash2,
     FiTruck,
@@ -27,6 +28,7 @@ const CustomerCard = ({
     onDeliver,
     onPaid,
     onWhatsApp,
+    onNavigate,
     onCalendar,
     onEdit,
     onHistory,
@@ -49,13 +51,24 @@ const CustomerCard = ({
                     </div>
                 </div>
 
-                <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
-                        isPaid ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-                    }`}
-                >
-                    {status}
-                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={onNavigate}
+                        disabled={isBusy}
+                        className={`${iconButtonClassName} text-blue-500 hover:text-blue-600`}
+                        aria-label="Open directions"
+                    >
+                        <FiNavigation />
+                    </button>
+                    <span
+                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                            isPaid ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                        }`}
+                    >
+                        {status}
+                    </span>
+                </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 text-center">

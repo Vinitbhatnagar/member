@@ -12,6 +12,8 @@ const AddCustomerModal = ({ isOpen, onClose, onSubmit }) => {
                 address: "",
                 phone: "",
                 rate_per_liter: "",
+                latitude: "",
+                longitude: "",
             }}
             onClose={onClose}
             onSubmit={onSubmit}

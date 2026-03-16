@@ -1,3 +1,5 @@
+import { normalizeCoordinate } from "./locationUtils";
+
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
@@ -50,6 +52,21 @@ export function normalizeCustomer(customer, index = 0) {
         collected_amount: Number(customer?.collected_amount ?? customer?.collectedAmount ?? 0),
         delivery_count: Number(customer?.delivery_count ?? customer?.deliveryCount ?? 0),
         distance_km: Number(customer?.distance_km ?? customer?.distance ?? fallbackDistance),
+        latitude: normalizeCoordinate(
+            customer?.latitude ??
+                customer?.lat ??
+                customer?.gps?.latitude ??
+                customer?.location?.latitude ??
+                customer?.coordinates?.latitude
+        ),
+        longitude: normalizeCoordinate(
+            customer?.longitude ??
+                customer?.lng ??
+                customer?.lon ??
+                customer?.gps?.longitude ??
+                customer?.location?.longitude ??
+                customer?.coordinates?.longitude
+        ),
         history: Array.isArray(customer?.history) ? customer.history.map(getHistoryEntry) : [],
     };
 }
@@ -66,6 +83,8 @@ export function buildCustomerPayload(customer) {
         collected_amount: Number(customer.collected_amount || 0),
         delivery_count: Number(customer.delivery_count || 0),
         distance_km: Number(customer.distance_km || 0),
+        latitude: normalizeCoordinate(customer.latitude),
+        longitude: normalizeCoordinate(customer.longitude),
         history: Array.isArray(customer.history)
             ? customer.history.map((entry) => ({
                   month: entry.month,
@@ -89,6 +108,8 @@ export function buildNewCustomer(values, customerCount) {
         collected_amount: 0,
         delivery_count: 0,
         distance_km: Number((1.3 + customerCount * 0.4).toFixed(1)),
+        latitude: normalizeCoordinate(values.latitude),
+        longitude: normalizeCoordinate(values.longitude),
         history: [],
     };
 }
@@ -118,6 +139,29 @@ export function buildWhatsAppUrl(customer) {
     );
 
     return `https://wa.me/${customer.phone}?text=${message}`;
+}
+
+export function buildGoogleMapsDirectionsUrl(customer) {
+    const latitude = normalizeCoordinate(customer?.latitude);
+    const longitude = normalizeCoordinate(customer?.longitude);
+    const destination =
+        latitude !== null && longitude !== null
+            ? `${latitude},${longitude}`
+            : typeof customer?.address === "string" && customer.address.trim() && customer.address !== "Address not added"
+              ? customer.address.trim()
+              : "";
+
+    if (!destination) {
+        return "";
+    }
+
+    const query = new URLSearchParams({
+        api: "1",
+        destination,
+        travelmode: "driving",
+    });
+
+    return `https://www.google.com/maps/dir/?${query.toString()}`;
 }
 
 export function getCustomerStatus(customer) {

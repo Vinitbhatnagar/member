@@ -115,6 +115,14 @@ function upsertLegacyMeta(customer) {
     collected_amount: Number(customer?.collected_amount ?? 0),
     delivery_count: Number(customer?.delivery_count ?? 0),
     distance_km: Number(customer?.distance_km ?? 0),
+    latitude:
+      customer?.latitude === null || customer?.latitude === undefined
+        ? null
+        : Number(customer.latitude),
+    longitude:
+      customer?.longitude === null || customer?.longitude === undefined
+        ? null
+        : Number(customer.longitude),
     history: Array.isArray(customer?.history) ? customer.history : [],
   };
 
@@ -172,11 +180,45 @@ function mergeLegacyCustomer(remoteCustomer, index, metaEntries) {
     distance_km: Number(
       meta?.distance_km ?? Number((1.4 + index * 0.6).toFixed(1)),
     ),
+    latitude:
+      meta?.latitude ?? remoteCustomer?.latitude ?? remoteCustomer?.lat ?? null,
+    longitude:
+      meta?.longitude ??
+      remoteCustomer?.longitude ??
+      remoteCustomer?.lng ??
+      remoteCustomer?.lon ??
+      null,
     history: Array.isArray(meta?.history) ? meta.history : [],
   };
 
   upsertLegacyMeta(mergedCustomer);
   return mergedCustomer;
+}
+
+function mergeLocalGpsMeta(remoteCustomer, metaEntries) {
+  const id = getRecordId(remoteCustomer);
+  const phone = String(remoteCustomer?.number || remoteCustomer?.phone || "");
+  const meta = metaEntries.find((entry) =>
+    matchesLegacyMeta(entry, {
+      id,
+      name: remoteCustomer?.name,
+      phone,
+    }),
+  );
+
+  if (!meta) {
+    return remoteCustomer;
+  }
+
+  return {
+    ...remoteCustomer,
+    ...(meta.latitude !== null && meta.latitude !== undefined
+      ? { latitude: meta.latitude }
+      : {}),
+    ...(meta.longitude !== null && meta.longitude !== undefined
+      ? { longitude: meta.longitude }
+      : {}),
+  };
 }
 
 function buildLegacyPayload(payload) {
@@ -188,10 +230,38 @@ function buildLegacyPayload(payload) {
   };
 }
 
+function buildModernPayload(payload) {
+  return {
+    name: payload?.name?.trim() || "",
+    address: payload?.address?.trim() || "",
+    phone: payload?.phone?.trim() || "",
+    rate_per_liter: Number(payload?.rate_per_liter ?? 0),
+    daily_milk: Number(payload?.daily_milk ?? 0),
+    total_delivered: Number(payload?.total_delivered ?? 0),
+    bill_amount: Number(payload?.bill_amount ?? 0),
+    collected_amount: Number(payload?.collected_amount ?? 0),
+    delivery_count: Number(payload?.delivery_count ?? 0),
+    distance_km: Number(payload?.distance_km ?? 0),
+    history: Array.isArray(payload?.history)
+      ? payload.history.map((entry) => ({
+          month: entry?.month || "",
+          total_liters: Number(entry?.total_liters ?? 0),
+          total_deliveries: Number(entry?.total_deliveries ?? 0),
+          bill_amount: Number(entry?.bill_amount ?? 0),
+        }))
+      : [],
+  };
+}
+
 export async function fetchCustomers() {
   if (shouldUseModernApi()) {
     const response = await modernApi.get("/customers");
-    return extractPayload(response.data);
+    const records = extractPayload(response.data);
+    const metaEntries = readLegacyMeta();
+
+    return Array.isArray(records)
+      ? records.map((customer) => mergeLocalGpsMeta(customer, metaEntries))
+      : records;
   }
 
   const response = await legacyApi.get("");
@@ -207,18 +277,39 @@ export async function fetchCustomers() {
 
 export async function createCustomer(payload) {
   if (shouldUseModernApi()) {
-    const response = await modernApi.post("/customers", payload);
-    return extractPayload(response.data);
+    const response = await modernApi.post(
+      "/customers",
+      buildModernPayload(payload),
+    );
+    const createdCustomer = extractPayload(response.data);
+
+    upsertLegacyMeta({
+      ...payload,
+      id: getRecordId(createdCustomer),
+    });
+
+    return createdCustomer;
   }
 
   const response = await legacyApi.post("", buildLegacyPayload(payload));
-  upsertLegacyMeta(payload);
-  return extractPayload(response.data);
+  const createdCustomer = extractPayload(response.data);
+  upsertLegacyMeta({
+    ...payload,
+    id: getRecordId(createdCustomer),
+  });
+  return createdCustomer;
 }
 
 export async function updateCustomer(id, payload) {
   if (shouldUseModernApi()) {
-    const response = await modernApi.put(`/customers/${id}`, payload);
+    const response = await modernApi.put(
+      `/customers/${id}`,
+      buildModernPayload(payload),
+    );
+    upsertLegacyMeta({
+      ...payload,
+      id,
+    });
     return extractPayload(response.data);
   }
 
@@ -233,6 +324,7 @@ export async function updateCustomer(id, payload) {
 export async function removeCustomer(id) {
   if (shouldUseModernApi()) {
     await modernApi.delete(`/customers/${id}`);
+    removeLegacyMeta(id);
     return;
   }
 

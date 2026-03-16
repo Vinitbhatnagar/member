@@ -10,6 +10,7 @@ import SummaryCard from "./components/SummaryCard";
 import { createCustomer, fetchCustomers, removeCustomer, updateCustomer } from "./api/customers";
 import {
     buildCustomerPayload,
+    buildGoogleMapsDirectionsUrl,
     buildHistoryEntry,
     buildNewCustomer,
     buildWhatsAppUrl,
@@ -146,6 +147,8 @@ const Dashboard = () => {
             address: values.address.trim(),
             phone: values.phone.trim(),
             rate_per_liter: Number(values.rate_per_liter),
+            latitude: values.latitude,
+            longitude: values.longitude,
         };
 
         const didSave = await saveCustomerUpdate(updatedCustomer, "Customer updated successfully.", "Unable to update customer.");
@@ -234,6 +237,20 @@ const Dashboard = () => {
         window.open(buildWhatsAppUrl(customer), "_blank", "noopener,noreferrer");
     }
 
+    function handleNavigate(customer) {
+        const directionsUrl = buildGoogleMapsDirectionsUrl(customer);
+
+        if (!directionsUrl) {
+            setFeedback({
+                type: "error",
+                message: `Add a pinned location or address for ${customer.name} before opening Google Maps directions.`,
+            });
+            return;
+        }
+
+        window.open(directionsUrl, "_blank", "noopener,noreferrer");
+    }
+
     function handleCalendar(customer) {
         setFeedback({
             type: "info",
@@ -258,13 +275,12 @@ const Dashboard = () => {
 
                 {feedback.message ? (
                     <div
-                        className={`rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ${
-                            feedback.type === "error"
+                        className={`rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ${feedback.type === "error"
                                 ? "bg-red-50 text-red-500"
                                 : feedback.type === "info"
-                                  ? "bg-blue-50 text-blue-600"
-                                  : "bg-emerald-50 text-emerald-600"
-                        }`}
+                                    ? "bg-blue-50 text-blue-600"
+                                    : "bg-emerald-50 text-emerald-600"
+                            }`}
                     >
                         {feedback.message}
                     </div>
@@ -275,9 +291,8 @@ const Dashboard = () => {
                 <button
                     type="button"
                     onClick={() => setSortByDistance((currentValue) => !currentValue)}
-                    className={`flex items-center justify-center gap-2 rounded-full border px-4 py-3 text-sm font-medium transition duration-200 active:scale-95 ${
-                        sortByDistance ? "border-blue-500 bg-blue-50 text-blue-500" : "border-gray-200 bg-white text-blue-500"
-                    }`}
+                    className={`flex items-center justify-center gap-2 rounded-full border px-4 py-3 text-sm font-medium transition duration-200 active:scale-95 ${sortByDistance ? "border-blue-500 bg-blue-50 text-blue-500" : "border-gray-200 bg-white text-blue-500"
+                        }`}
                 >
                     <FiNavigation />
                     By Distance
@@ -307,6 +322,7 @@ const Dashboard = () => {
                                 onDeliver={() => handleDeliver(customer)}
                                 onPaid={() => handlePaid(customer)}
                                 onWhatsApp={() => handleWhatsApp(customer)}
+                                onNavigate={() => handleNavigate(customer)}
                                 onCalendar={() => handleCalendar(customer)}
                                 onEdit={() => setEditingCustomer(customer)}
                                 onHistory={() => setHistoryCustomer(customer)}

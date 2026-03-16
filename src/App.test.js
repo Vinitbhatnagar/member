@@ -8,6 +8,8 @@ jest.mock("./api/customers", () => ({
   removeCustomer: jest.fn(),
 }));
 
+jest.mock("./components/LocationPickerModal", () => () => null);
+
 test("renders the milk delivery dashboard", async () => {
   render(<App />);
 
