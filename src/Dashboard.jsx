@@ -276,10 +276,10 @@ const Dashboard = () => {
                 {feedback.message ? (
                     <div
                         className={`rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ${feedback.type === "error"
-                                ? "bg-red-50 text-red-500"
-                                : feedback.type === "info"
-                                    ? "bg-blue-50 text-blue-600"
-                                    : "bg-emerald-50 text-emerald-600"
+                            ? "bg-red-50 text-red-500"
+                            : feedback.type === "info"
+                                ? "bg-blue-50 text-blue-600"
+                                : "bg-emerald-50 text-emerald-600"
                             }`}
                     >
                         {feedback.message}
@@ -349,4 +349,4 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard;
+export default Dashboard; 
